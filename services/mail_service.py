@@ -67,5 +67,80 @@ class MailService:
             print(f"[Mail] {now} 已发送: {name} -> {to_email} (剩余{days_left}天)")
             return True
         except Exception as e:
-            print(f"[Mail] 发送失败: {name} -> {to_email}, 错误: {e}")
+            print(f"[Mail] 发送失败: {to_email}, 错误: {e}")
+            return False
+
+    def send_batch_reminder(self, to_email: str, trademarks: list[dict]) -> bool:
+        """合并发送：一封邮件列出同一邮箱下的所有到期商标"""
+        if not self.enabled:
+            print(f"[Mail] SMTP未配置，跳过", flush=True)
+            return False
+
+        if not trademarks:
+            return False
+
+        # 构建商标列表行
+        rows_html = ""
+        min_days = 999
+        for tm in trademarks:
+            exp_date = datetime.strptime(tm["expiry_date"], "%Y-%m-%d")
+            days_left = (exp_date - datetime.now()).days
+            min_days = min(min_days, days_left)
+            urgency = "#e03030" if days_left <= 30 else "#fd7e14"
+            rows_html += f"""
+            <tr>
+                <td style="padding:10px;border:1px solid #eee;"><b>{tm['name']}</b></td>
+                <td style="padding:10px;border:1px solid #eee;">第{tm['category']}类</td>
+                <td style="padding:10px;border:1px solid #eee;">{tm['expiry_date']}</td>
+                <td style="padding:10px;border:1px solid #eee;color:{urgency};font-weight:700;">{days_left}天</td>
+            </tr>"""
+
+        count = len(trademarks)
+        subject = f"【商标续展提醒】您有{count}个商标即将到期，请及时续展"
+
+        html_body = f"""
+        <div style="max-width:650px;margin:0 auto;font-family:'Microsoft YaHei',Arial,sans-serif;">
+            <div style="background:#e03030;color:#fff;padding:24px;border-radius:8px 8px 0 0;">
+                <h2 style="margin:0;">商标续展提醒</h2>
+                <p style="margin:8px 0 0;opacity:0.9;">您有 {count} 个商标即将到期</p>
+            </div>
+            <div style="border:1px solid #e0e0e0;border-top:none;padding:24px;border-radius:0 0 8px 8px;">
+                <p>尊敬的客户：</p>
+                <p>以下商标即将到期，请及时办理续展手续，避免商标被注销：</p>
+                <table style="width:100%;border-collapse:collapse;margin:20px 0;">
+                    <tr style="background:#f8f8f8;">
+                        <th style="padding:10px;border:1px solid #eee;text-align:left;">商标名称</th>
+                        <th style="padding:10px;border:1px solid #eee;text-align:left;">类别</th>
+                        <th style="padding:10px;border:1px solid #eee;text-align:left;">到期日期</th>
+                        <th style="padding:10px;border:1px solid #eee;text-align:left;">剩余天数</th>
+                    </tr>
+                    {rows_html}
+                </table>
+                <p>商标有效期为10年，到期后需在12个月内办理续展。</p>
+                <p>如有疑问，请联系您的商标顾问。</p>
+                <br>
+                <p style="color:#999;font-size:12px;">此邮件由商标AI智能助手自动发送，请勿回复。</p>
+            </div>
+        </div>
+        """
+
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = self.from_addr
+            msg["To"] = to_email
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+            server = smtplib.SMTP(self.host, self.port, timeout=15)
+            server.starttls()
+            server.login(self.user, self.password)
+            server.sendmail(self.from_addr, to_email, msg.as_string())
+            server.quit()
+
+            names = ", ".join(t["name"] for t in trademarks)
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[Mail] {now} 合并发送: {count}个商标({names}) -> {to_email}")
+            return True
+        except Exception as e:
+            print(f"[Mail] 发送失败: {to_email}, 错误: {e}")
             return False

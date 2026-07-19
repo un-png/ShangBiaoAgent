@@ -29,25 +29,23 @@ def run_once(db: TrademarkDB, mail: MailService):
         _flush("[Worker] 没有需要提醒的商标")
         return
 
-    _flush(f"[Worker] 发现 {len(pending)} 个待提醒商标")
-
+    # 按邮箱分组，同一邮箱多个商标合并为一封邮件
+    groups: dict[str, list[dict]] = {}
     for tm in pending:
-        exp_date = datetime.strptime(tm["expiry_date"], "%Y-%m-%d")
-        days_left = (exp_date - datetime.now()).days
+        groups.setdefault(tm["email"], []).append(tm)
 
-        _flush(f"  -> 发送: {tm['name']}(第{tm['category']}类) -> {tm['email']} (剩余{days_left}天)")
+    _flush(f"[Worker] 发现 {len(pending)} 个待提醒商标，合并为 {len(groups)} 封邮件")
 
-        success = mail.send_reminder(
-            to_email=tm["email"],
-            name=tm["name"],
-            category=tm["category"],
-            expiry_date=tm["expiry_date"],
-            days_left=days_left,
-        )
+    for email, tm_list in groups.items():
+        names = ", ".join(t["name"] for t in tm_list)
+        _flush(f"  -> 发送: {len(tm_list)}个商标({names}) -> {email}")
+
+        success = mail.send_batch_reminder(to_email=email, trademarks=tm_list)
 
         if success:
-            db.mark_reminded(tm["id"])
-            _flush(f"     ✅ 已发送，下次提醒需24小时后")
+            for tm in tm_list:
+                db.mark_reminded(tm["id"])
+            _flush(f"     ✅ 合并发送成功")
         else:
             _flush(f"     ❌ 发送失败，检查SMTP配置或邮箱地址")
 
