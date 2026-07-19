@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  shangbiao:
+    build: .
+    container_name: shangbiao-agent
+    ports:
+      - "8501:8501"
+    volumes:
+      # 持久化数据库和配置文件
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
