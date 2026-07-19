@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
@@ -7,10 +7,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # 复制源码
-COPY main.py .
+COPY main.py reminder_worker.py ./
 COPY services/ ./services/
-
-# 复制启动脚本
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
