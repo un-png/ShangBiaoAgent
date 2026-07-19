@@ -3,7 +3,17 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# 优先从项目根目录、其次 data/ 目录加载 .env
+_env_paths = [
+    Path(__file__).parent.parent / ".env",
+    Path(__file__).parent.parent / "data" / ".env",
+]
+for p in _env_paths:
+    if p.exists():
+        load_dotenv(p)
+        break
+else:
+    load_dotenv()  # 兜底：从当前目录找
 
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 DASHSCOPE_BASE_URL = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
