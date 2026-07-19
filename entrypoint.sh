@@ -27,7 +27,7 @@ else
 fi
 
 echo "[entry] 启动邮件提醒Worker..."
-python -B reminder_worker.py &
+python -u reminder_worker.py &
 WORKER_PID=$!
 
 echo "[entry] 启动Streamlit Web服务 (端口8501)..."
